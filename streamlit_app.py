@@ -11,7 +11,7 @@ import seaborn as sns
 # Page configuration
 st.set_page_config(
     page_title="Black-Scholes Option Pricing Model",
-    page_icon="📊",
+    page_icon="📊💹",
     layout="wide",
     initial_sidebar_state="expanded")
 
@@ -123,9 +123,14 @@ class BlackScholes:
 # Sidebar for User Inputs
 with st.sidebar:
     st.title("📊 Black-Scholes Model")
-    st.write("`Created by:`")
-    linkedin_url = "https://www.linkedin.com/in/mprudhvi/"
-    st.markdown(f'<a href="{linkedin_url}" target="_blank" style="text-decoration: none; color: inherit;"><img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="25" height="25" style="vertical-align: middle; margin-right: 10px;">`Prudhvi Reddy, Muppala`</a>', unsafe_allow_html=True)
+    st.write("Created by:")
+    linkedin_url = "https://www.linkedin.com/in/gopal-sarda-350981260/"
+    st.markdown(f'''
+    <a href="{linkedin_url}" target="_blank" style="text-decoration: none; color: inherit; font-size: 16px;">
+        <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" width="25" height="25" style="vertical-align: middle; margin-right: 10px;">
+        Gopal Sarda
+    </a>
+    ''', unsafe_allow_html=True)
 
     current_price = st.number_input("Current Asset Price", value=100.0)
     strike = st.number_input("Strike Price", value=100.0)
@@ -224,6 +229,67 @@ with col2:
 
 st.markdown("")
 st.title("Options Price - Interactive Heatmap")
+# Display Option Greeks
+st.title("Option Greeks")
+
+greeks_data = {
+    "Greek": ["Delta (Call)", "Delta (Put)", "Gamma (Call/Put)"],
+    "Value": [bs_model.call_delta, bs_model.put_delta, bs_model.call_gamma]
+}
+
+greeks_df = pd.DataFrame(greeks_data)
+st.table(greeks_df)
+
+# --- Implied Volatility (IV) Solver Section ---
+from scipy.optimize import brentq
+
+st.title("Implied Volatility (IV) Solver")
+
+market_price = st.number_input("Market Price of Option (for IV Solver)", value=10.0)
+
+def implied_volatility(option_price, S, K, T, r, option_type="call"):
+    def objective_function(sigma):
+        bs_temp = BlackScholes(T, K, S, sigma, r)
+        call_price_temp, put_price_temp = bs_temp.calculate_prices()
+        if option_type == "call":
+            return call_price_temp - option_price
+        else:
+            return put_price_temp - option_price
+
+    try:
+        iv = brentq(objective_function, 1e-5, 3.0)
+        return iv
+    except Exception as e:
+        return None
+
+iv_call = implied_volatility(market_price, current_price, strike, time_to_maturity, interest_rate, option_type="call")
+iv_put = implied_volatility(market_price, current_price, strike, time_to_maturity, interest_rate, option_type="put")
+
+st.write(f"Implied Volatility for Call Option: {iv_call:.4f}" if iv_call else "IV for Call could not be calculated.")
+st.write(f"Implied Volatility for Put Option: {iv_put:.4f}" if iv_put else "IV for Put could not be calculated.")
+
+
+
+# --- Option Price vs Time to Maturity Plot Section ---
+st.title("Option Price vs Time to Maturity")
+
+time_range = np.linspace(0.01, 2.0, 50)
+call_prices_vs_time = []
+put_prices_vs_time = []
+
+for T in time_range:
+    bs_temp = BlackScholes(T, strike, current_price, volatility, interest_rate)
+    call_price_temp, put_price_temp = bs_temp.calculate_prices()
+    call_prices_vs_time.append(call_price_temp)
+    put_prices_vs_time.append(put_price_temp)
+
+fig_time = go.Figure()
+fig_time.add_trace(go.Scatter(x=time_range, y=call_prices_vs_time, mode='lines', name='Call Option Price'))
+fig_time.add_trace(go.Scatter(x=time_range, y=put_prices_vs_time, mode='lines', name='Put Option Price'))
+fig_time.update_layout(title='Option Price vs Time to Maturity', xaxis_title='Time to Maturity (Years)', yaxis_title='Option Price')
+
+st.plotly_chart(fig_time)
+
 st.info("Explore how option prices fluctuate with varying 'Spot Prices and Volatility' levels using interactive heatmap parameters, all while maintaining a constant 'Strike Price'.")
 
 # Interactive Sliders and Heatmaps for Call and Put Options
